@@ -18,7 +18,7 @@ real astyd(pair A, pair B)
 //DRAW FUNCTIONS
 
 //mark angle given 3 points.
-path[] astyangle(pair A, pair B, pair C, real count=1)
+path[] astymarkangle(pair A, pair B, pair C, real count=1)
 {
 	real lspacing = 0.2;
 	path arcs[];
@@ -31,6 +31,22 @@ path[] astyangle(pair A, pair B, pair C, real count=1)
 		arcs[i] = arc(B, P, Q);
 	}
 	return arcs;
+}
+
+// right angle mark with 3 points
+path[] astymarkrightangle(pair A, pair B, pair C, real count=1)
+{
+	real lspacing = 0.2;
+	path paths[];
+	pair P;
+	pair Q;
+	for (int i = 0; i < count; ++i)
+	{
+		P = (1+lspacing*i)*astyscale*unit(A-B);
+		Q = (1+lspacing*i)*astyscale*unit(C-B);
+		paths[i] = P+B--P+Q+B--Q+B;
+	}
+	return paths;
 }
 
 //draw guide line between two points with spacing
