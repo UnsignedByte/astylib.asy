@@ -1,3 +1,5 @@
+access contour;
+
 // DEFINE GLOBALS
 real astyscale = 1; // Define scale of elements
 
@@ -42,15 +44,14 @@ path[] astymarkrightangle(pair A, pair B, pair C, real count=1)
 	pair Q;
 	for (int i = 0; i < count; ++i)
 	{
-		P = (1+lspacing*i)*astyscale*unit(A-B);
-		Q = (1+lspacing*i)*astyscale*unit(C-B);
+		P = (1+lspacing*i)*astyscale/sqrt(2)*unit(A-B);
+		Q = (1+lspacing*i)*astyscale/sqrt(2)*unit(C-B);
 		paths[i] = P+B--P+Q+B--Q+B;
 	}
 	return paths;
 }
 
-//draw guide line between two points with spacing
-
+// draw guide line between two points with spacing between each point and the start of the line
 path astyguide(pair A, pair B)
 {
 	real d, g;
@@ -69,4 +70,60 @@ path[] astycomponents(pair A, pair B)
 	P[0] = astyguide(A, R);
 	P[1] = astyguide(B, R);
 	return P;
+}
+
+// Create nonlinear gradient specified by a list of pens and their positions.
+pen[] astygradient(int n, pen[] colors, real[] positions = {}) {
+	if (positions.length == 0) {
+		if (colors.length == 1) {
+			positions = new real[] {1};
+		} else {
+			positions = uniform(0, 1, colors.length-1);
+		}
+	}
+
+	assert(colors.length == positions.length, "More colors provided than positions.");
+
+	int ri = 1;
+
+	colors.insert(0, colors[0]);
+	colors.push(colors[colors.length-1]);
+	positions.insert(0, 0);
+	positions.push(1);
+
+	pen[] ncolors = new pen[n];
+
+	for (int i = 0; i < n; ++i) {
+		if (i > positions[ri] * (n-1)) {
+			++ri;
+		}
+
+		real dst = (positions[ri]-positions[ri-1]) * (n-1);
+
+		real ratio = 1;
+
+		if (dst != 0) {
+			ratio = (i - positions[ri-1] * (n-1)) / dst;
+		}
+
+		ncolors[i] = colors[ri-1]*(1-ratio) + colors[ri]*ratio;
+	}
+
+	return ncolors;
+}
+
+// Draws a contourmap onto a picture.
+void astydrawsimplecontour(picture pic = currentpicture, real f(real, real), pair a, pair b, real[] c, real[] important, pen[] grad = {black}) {
+
+	int n = c.length;
+	pen[] p = astygradient(n, grad);
+	p = sequence(new pen(int i) {
+		return p[i] + (c[i] != 0 ? dashed : solid);
+	}, n);
+
+	Label[] ll=sequence(new Label(int i) {
+  	return Label(c[i] != 0 ? (string) c[i] : "",Relative(unitrand()),(0,0),UnFill(1bp));
+	},n);
+
+	contour.draw(pic, ll, contour.contour(f,a,b,c), p);
 }
