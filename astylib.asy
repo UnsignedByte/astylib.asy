@@ -1,69 +1,38 @@
 access contour;
 
 // DEFINE GLOBALS
-real astyscale = 1; // Define scale of elements
 pen shortdashed = linetype(new real[] {4, 4});
 
 //UTIL FUNCTIONS
 
-// distance squared
-real astyds(pair A, pair B)
-{
-	return (A.x-B.x)^2+(A.y-B.y)^2;
-}
-
 // distance
 real astyd(pair A, pair B)
 {
-	return sqrt(astyds(A, B));
+	return sqrt(abs(A-B));
 }
 
 //DRAW FUNCTIONS
-
-//mark angle given 3 points.
-path[] astymarkangle(pair A, pair B, pair C, real count=1, real spacing=0.2, bool clockwise=CW)
-{
-	if (clockwise == CW) {
-		return astymarkangle(C, B, A, count, CCW);
-	}
-
-	path arcs[];
-	pair P;
-	pair Q;
-	for (int i = 0; i < count; ++i)
-	{
-		P = (1+spacing*i)*astyscale*unit(A-B)+B;
-		Q = (1+spacing*i)*astyscale*unit(C-B)+B;
-		arcs[i] = arc(B, P, Q);
-	}
-	return arcs;
+// labels a point
+void astylabel(picture pic = currentpicture, string name, pair A, real s = 1, pair d = (0, 0), filltype filltype=NoFill) {
+	label(pic, scale(s)*Label(name, A, d), filltype);
 }
 
-// right angle mark with 3 points
-path[] astymarkrightangle(pair A, pair B, pair C, real count=1, real spacing=0.2, bool clockwise=CW)
-{
-	if (clockwise == CW) {
-		return astymarkrightangle(C, B, A, count, CCW);
-	}
+// labels a path
+void astylabel(picture pic = currentpicture, string name, path p, real s = 1, pair d = (0, 0), filltype filltype=NoFill) {
+	astylabel(pic, name, relpoint(p, 0.5), s, d, filltype);
+}
 
-	path paths[];
-	pair P;
-	pair Q;
-	for (int i = 0; i < count; ++i)
-	{
-		P = (1+spacing*i)*astyscale/sqrt(2)*unit(A-B);
-		Q = (1+spacing*i)*astyscale/sqrt(2)*unit(C-B);
-		paths[i] = P+B--P+Q+B--Q+B;
-	}
-	return paths;
+// labels a line
+void astylabel(picture pic = currentpicture, string name, pair A, pair B, real s = 1, pair d = (0, 0), filltype filltype=NoFill) {
+	astylabel(pic, name, (A+B)/2, s, d, filltype);
 }
 
 // draw guide line between two points with spacing between each point and the start of the line
-path astyguide(pair A, pair B)
+path astyguide(pair A, pair B, real spacing = 0.25)
 {
 	real d, g;
 	d = astyd(A, B);
-	g = 0.25*astyscale/d; // calculated gap
+	g = spacing/d; // calculated gap
 	return subpath(A--B, g, 1-g);
 }
 
@@ -91,10 +60,20 @@ path astyline(pair A, pair B, real pad=1) {
 	return astyextend(B, A, pad)--astyextend(A, B, pad);
 }
 
+// Creates a perpendicular to a line at a certain time t (from 0 to 1) at a distance dist
+pair astyperp(path p, real t, real dist=1, bool clockwise=CW) {
+	real time = reltime(p, t);
+	pair src = point(p, time);
+	pair tangent = dir(p, time);
+
+	real angle = degrees(tangent) + (clockwise==CCW ? 90 : -90);
+
+	return dist*dir(angle)+src;
+}
+
 // returns a perpendicular point on line A--B at point B.
 pair astyperp(pair A, pair B, real dist=1, bool clockwise=CW) {
-	real angle = degrees(B-A) + (clockwise==CW ? 90 : -90);
-	return dist*dir(angle)+B;
+	return astyperp(A--B, 1, dist, clockwise);
 }
 
 // draw a perpendicular line through a point B on A--B
@@ -102,15 +81,89 @@ path astyperpline(pair A, pair B, real dist=1) {
 	return astyperp(A, B, dist, CW)--astyperp(A, B, dist, CCW);
 }
 
+// Mark a path with congruence lines
+path[] astymarkpath(path p, int count=1, real len = 0.1, real spacing=0.05, real center=0.5)
+{
+	real tspacing = spacing/arclength(p);
+
+	path marks[];
+
+	real start = center - tspacing*(count-1)/2;
+
+	real pos;
+	pair A;
+	pair B;
+
+	for (int i = 0; i < count; ++i)
+	{
+		pos = start + tspacing*i;
+		A = astyperp(p, pos, len/2, CW);
+		B = astyperp(p, pos, len/2, CCW);
+
+		marks.push(A--B);
+	}
+
+	return marks;
+}
+
+//mark angle given 3 points.
+path[] astymarkangle(pair A, pair B, pair C, int count=1, real scale=0.1, real spacing=0.2, bool clockwise=CW, bool tick=false)
+{
+	if (clockwise == CW) {
+		return astymarkangle(C, B, A, count, scale, spacing, CCW, tick);
+	}
+
+	if (tick) {
+		path p = astymarkangle(A, B, C, 1, scale, spacing, clockwise, tick=false)[0];
+		path[] ticks = astymarkpath(p, count, len=scale*0.25, spacing=spacing*0.075, center=0.5);
+		path ps[];
+		ps.push(p);
+		for (int i = 0; i < count; ++i) {
+			ps.push(ticks[i]);
+		}
+		return ps;
+	}
+
+	path arcs[];
+	pair P;
+	pair Q;
+	for (int i = 0; i < count; ++i)
+	{
+		P = (1+spacing*i)*scale*unit(A-B)+B;
+		Q = (1+spacing*i)*scale*unit(C-B)+B;
+		arcs.push(arc(B, P, Q));
+	}
+	return arcs;
+}
+
+// right angle mark with 3 points
+path[] astymarkrightangle(pair A, pair B, pair C, int count=1, real scale=0.1, real spacing=0.2, bool clockwise=CW)
+{
+	if (clockwise == CW) {
+		return astymarkrightangle(C, B, A, count, scale, spacing, CCW);
+	}
+
+	path paths[];
+	pair P;
+	pair Q;
+	for (int i = 0; i < count; ++i)
+	{
+		P = (1+spacing*i)*scale/sqrt(2)*unit(A-B);
+		Q = (1+spacing*i)*scale/sqrt(2)*unit(C-B);
+		paths.push(P+B--P+Q+B--Q+B);
+	}
+	return paths;
+}
+
 //label x and y components of a line
-path[] astycomponents(pair A, pair B)
+path[] astylinecomponents(pair A, pair B)
 {
 	pair R;
 	R = (A.x, B.y);
 
 	path P[];
-	P[0] = astyguide(A, R);
-	P[1] = astyguide(B, R);
+	P.push(astyguide(A, R));
+	P.push(astyguide(B, R));
 	return P;
 }
 
@@ -148,7 +201,7 @@ pen[] astygradient(int n, pen[] colors, real[] positions = {}) {
 			ratio = (i - positions[ri-1] * (n-1)) / dst;
 		}
 
-		ncolors[i] = colors[ri-1]*(1-ratio) + colors[ri]*ratio;
+		ncolors.push(colors[ri-1]*(1-ratio) + colors[ri]*ratio);
 	}
 
 	return ncolors;
@@ -212,4 +265,43 @@ pair astyconstructbisector(picture pic = currentpicture, pair A, pair B, pair C,
 	draw(arc3, p);
 
 	return bpoint;
+}
+
+pair[] astyconstructsquare(pair A, pair B, bool clockwise = CW) {
+	real dist = abs(A-B);
+
+	pair C = astyperp(A--B, 1, dist, clockwise);
+	pair D = astyperp(A--B, 0, dist, clockwise);
+
+	pair[] CD = {C, D};
+
+	return CD;
+}
+
+
+/// SHADING FUNCTIONS
+void astyfillcheckered(picture pic=currentpicture, path[] p, pen a, pen b, real nx=5, real ny=5, bool stroke=false) {
+	real[] acols = colors(rgb(a));
+	real[] bcols = colors(rgb(b));
+
+	string shader = 
+		"%.4f mul " 
+		"floor "
+		"exch "
+		"%.4f mul " 
+		"floor "
+		"add "
+		"2 mod "
+		"1 eq "
+		"{ %.4f %.4f %.4f } "
+		"{ %.4f %.4f %.4f } "
+		"ifelse ";
+
+	shader = format(format(shader, ny), nx); // replace the first two ns
+	shader = format(format(format(shader, acols[0]), acols[1]), acols[2]);
+	shader = format(format(format(shader, bcols[0]), bcols[1]), bcols[2]);
+
+	layer(pic);
+	functionshade(pic, p, stroke, rgb(zerowinding), shader);
+	layer(pic);
 }
